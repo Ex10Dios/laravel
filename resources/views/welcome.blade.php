@@ -3,98 +3,139 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Laravel</title>
+        <title>{{ config('app.name') }}</title>
 
         <!-- Fonts -->
-        <link href="https://fonts.googleapis.com/css?family=Nunito:200,600" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Nunito:400,700" rel="stylesheet">
 
         <!-- Styles -->
-        <style>
-            html, body {
-                background-color: #fff;
-                color: #636b6f;
-                font-family: 'Nunito', sans-serif;
-                font-weight: 200;
-                height: 100vh;
-                margin: 0;
-            }
+        <link rel="stylesheet" href="/css/app.css">
 
-            .full-height {
-                height: 100vh;
-            }
-
-            .flex-center {
-                align-items: center;
-                display: flex;
-                justify-content: center;
-            }
-
-            .position-ref {
-                position: relative;
-            }
-
-            .top-right {
-                position: absolute;
-                right: 10px;
-                top: 18px;
-            }
-
-            .content {
-                text-align: center;
-            }
-
-            .title {
-                font-size: 84px;
-            }
-
-            .links > a {
-                color: #636b6f;
-                padding: 0 25px;
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: .1rem;
-                text-decoration: none;
-                text-transform: uppercase;
-            }
-
-            .m-b-md {
-                margin-bottom: 30px;
-            }
-        </style>
+        <!-- Scripts -->
+        <script src="/js/app.js" defer></script>
     </head>
     <body>
-        <div class="flex-center position-ref full-height">
-            @if (Route::has('login'))
-                <div class="top-right links">
-                    @auth
-                        <a href="{{ url('/home') }}">Home</a>
-                    @else
-                        <a href="{{ route('login') }}">Login</a>
+    <form id="messages_form" action="{{ route('api.messages.store') }}" method="POST" class="needs-validation" novalidate>
+        <div class="text-center mb-4">
+            <h1 class="h3 mb-3 font-weight-normal">New Message</h1>
+        </div>
 
-                        @if (Route::has('register'))
-                            <a href="{{ route('register') }}">Register</a>
-                        @endif
-                    @endauth
-                </div>
-            @endif
+        <div class="alert alert-success alert-dismissible" role="alert" id="alert">
+        </div>
 
-            <div class="content">
-                <div class="title m-b-md">
-                    Laravel
-                </div>
-
-                <div class="links">
-                    <a href="https://laravel.com/docs">Docs</a>
-                    <a href="https://laracasts.com">Laracasts</a>
-                    <a href="https://laravel-news.com">News</a>
-                    <a href="https://blog.laravel.com">Blog</a>
-                    <a href="https://nova.laravel.com">Nova</a>
-                    <a href="https://forge.laravel.com">Forge</a>
-                    <a href="https://vapor.laravel.com">Vapor</a>
-                    <a href="https://github.com/laravel/laravel">GitHub</a>
-                </div>
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" class="form-control" required="" autofocus=""/>
+            <div class="invalid-feedback" id="name_error" data-message="Name is required">
+                Name is required
             </div>
         </div>
+
+        <div class="form-group">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" class="form-control" pattern="^\d{3}-\d{3}-\d{4}$" required="" onkeypress="validatePhone(event)"/>
+            <small id="emailHelp" class="form-text text-muted">Allowed format: xxx-xxx-xxxx.</small>
+            <div class="invalid-feedback" id="phone_error" data-message="Valid phone is required">
+                Valid phone is required
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="message">Message</label>
+            <textarea name="message" id="message" class="form-control w-100" rows="5" required=""></textarea>
+            <div class="invalid-feedback" id="message_error" data-message="Message is required">
+                Message is required
+            </div>
+        </div>
+        <div class="text-center">
+            <button class="btn btn-outline-secondary" type="button" onclick="clearForm()">Clear</button>
+            <button class="btn btn-primary ml-2" type="submit">Save</button>
+        </div>
+    </form>
+    <script>
+        'use strict';
+        window.addEventListener('load', function() {
+            let form = document.getElementById('messages_form');
+
+            // Add custom form validation
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                form.classList.add('was-validated');
+                if (form.checkValidity()) {
+
+                    let url = form.getAttribute('action');
+                    let name = document.getElementById('name');
+                    let phone = document.getElementById('phone');
+                    let message = document.getElementById('message');
+
+                    // Send AJAX request
+                    window.axios.post(url, {
+                        name: name.value,
+                        phone: phone.value,
+                        message: message.value,
+                    })
+                        .then(function (response) {
+                            // Clear form and show message
+                            clearForm();
+                            $('#alert')
+                                .text('Thank you, ' + response.data.name + ', we will process your request soon')
+                                .show();
+                        })
+                        .catch(function (error) {
+                            if (error.response) {
+                                if (error.response.data.errors) {
+                                    let errors = error.response.data.errors;
+                                    Object.keys(errors).forEach((field) => {
+                                        document.getElementById(field).classList.add('is-invalid');
+                                        document.getElementById(field+'_error').textContent = errors[field][0];
+                                    })
+                                }
+                            } else if (error.request) {
+                                console.log(error.request);
+                            } else {
+                                console.log('Error', error.message);
+                            }
+                        });
+                }
+            }, false);
+        }, false);
+
+        // Allow only digits and "-" for phone number
+        // P.S. Doesn't work for 'Paste'
+        function validatePhone(e) {
+            let key = e.keyCode || e.which;
+            key = String.fromCharCode(key);
+            let regex = /[0-9]|-/;
+            if( !regex.test(key) ) {
+                event.returnValue = false;
+                if(event.preventDefault) event.preventDefault();
+            }
+        }
+
+        // Clear form data and errors
+        function clearForm() {
+            document.getElementById('messages_form').classList.remove('was-validated');
+
+            let name = document.getElementById('name');
+            let phone = document.getElementById('phone');
+            let message = document.getElementById('message');
+
+            name.value = '';
+            phone.value = '';
+            message.value = '';
+
+            name.classList.remove('is-invalid');
+            phone.classList.remove('is-invalid');
+            message.classList.remove('is-invalid');
+
+            // Restore default error messages
+            $('.invalid-feedback').each((i, el) => {
+                console.log($(el).text($(el).data('message')));
+            })
+
+        }
+    </script>
     </body>
 </html>
